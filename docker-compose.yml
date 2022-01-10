@@ -1,0 +1,92 @@
+version: '3.1'
+service:
+  reverse-proxy:
+    image: nginx:1.17.10
+    container_name : reverse_proxy
+    depends_on:
+      - db_odoo
+      - php
+      - mysql
+      - adminer
+    volumes:
+      - /reverse_proxy/nginx.conf:/etc/nginx/nginx.conf
+    ports:
+      - 80:80
+  odoo:
+    image: odoo:14
+    depends_on:
+      - db_odoo
+    ports:
+      - "8069:8069"
+    volumes:
+      - pos-odoo-web-data:/var/lib/odoo
+      - ./config:etc/odoo
+      - ./addons:/mnt/extra-addons
+  db_odoo:
+    image: postgres:13
+    environment:
+      - POSTGRES_DB=postgres
+      - POSTGRES_PASSWORD=odoo
+      - POSTGRES_USER=odoo
+      - PGDATA=/var/lib/postgresql/data/pgdata
+    volumes:
+      - pos-odoo-db-data:/var/lib/postgresql/data/pgdata
+  mysql:
+    image: mysql:8
+    container_name: prestashop-db
+    command: --defaut-authentication-plugin=mysql_native_password
+    environment:
+      MYSQL_DATABASE: prestashop
+      MYSQL_ROOT_PASSWORD: prestashop
+    ports:
+      - 3303:3306
+    networks:
+      - prestashop
+  prestashop:
+    image: prestashop/prestashop:1.7
+    container_name: prestashop
+    environment:
+        DB_SERVER: mysql
+    ports:
+      - 8080:85
+    networks:
+      - prestashop
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: phpmyadmin
+    environment:
+        PMA_HOST: mysql
+    ports:
+      - 1235:80
+    networks:
+      - prestashop
+    depends_on:
+      - mysql
+  php:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - 80:80
+    volumes:
+      - ./src:/var/www/html/
+  db:
+    image: mysql
+    command: --default-authentication-plugin=mysql_native_password
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: example
+    volumes:
+      - mysql-data:/var/lib/mysql
+  adminer:
+    image: adminer
+    restart: always
+    ports:
+      - 8080:8080
+
+networks:
+    prestashop:
+volumes:
+    pos-odoo-web-data: 
+    pos-odoo-db-data:
